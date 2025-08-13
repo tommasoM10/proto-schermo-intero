@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a3d62" />
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="assets/icon-192.png">
+  <title>SeaGuard v2.3 – Prototype</title>
+  <style>
+    :root { --padb: env(safe-area-inset-bottom, 0px); --padt: env(safe-area-inset-top, 0px); }
+    html, body { margin:0; padding:0; height:100%; background:#061a2b; color:#eaf2f9; font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+    #app { position:fixed; inset:0; display:flex; flex-direction:column; }
+    header { position:relative; z-index:5; background:#0a3d62; padding:8px 12px calc(6px + var(--padt)) 12px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    header h1 { margin:0; font-size:18px; }
+    .legend { display:flex; gap:8px; align-items:center; font-size:12px; opacity:0.9; }
+    .legend .box { width:12px; height:12px; border-radius:2px; display:inline-block; }
+    #menuToggle { padding:8px 10px; border-radius:8px; border:1px solid #214d78; background:#0b3357; color:#eaf2f9; font-weight:700; }
+    #dropdown { position:absolute; left:0; right:0; top:100%; background:#0c2742; border-bottom:1px solid #214d78; box-shadow:0 10px 30px rgba(0,0,0,.35); display:none; }
+    #dropdown.open { display:block; }
+    #dropdown .inner { padding:12px; display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:10px; }
+    .card { background:#07233b; border:1px solid #214d78; border-radius:10px; padding:10px; }
+    label { display:block; font-size:13px; opacity:0.9; margin-bottom:4px; }
+    select, input[type=number], input[type=range], input[type=checkbox], button { width:100%; padding:8px; border-radius:8px; border:1px solid #214d78; background:#0b3357; color:#eaf2f9; }
+    button.primary { background:#1e90ff; border-color:#1e90ff; color:#001221; font-weight:700; }
+    button.warn { background:#ffc107; color:#001221; border-color:#ffc107; }
+    button.danger { background:#ff4757; border-color:#ff4757; }
+    main { position:relative; flex:1; }
+    #stage { position:absolute; inset:0; background:#001221; }
+    video, canvas { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+    #hud { position:absolute; left:0; right:0; top:0; padding:8px 10px; display:none; justify-content:center; z-index:4; }
+    #hud .chip { background:#ff4757; color:#fff; padding:6px 10px; border-radius:999px; font-weight:700; }
+    #topButtons { position:absolute; right:10px; bottom: calc(12px + var(--padb)); display:flex; gap:8px; z-index:4; }
+    #fsBtn { padding:8px 10px; border-radius:8px; border:1px solid #214d78; background:#0b3357; color:#eaf2f9; font-weight:700; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>SeaGuard v2.3 <span style="font-size:12px; opacity:.85;">Prototype</span></h1>
+    <div class="legend">
+      <span class="box" style="background:#2ed573"></span> visibile
+      <span class="box" style="background:#ffa502"></span> pre-allerta
+      <span class="box" style="background:#ff4757"></span> allerta
+    </div>
+    <button id="menuToggle">☰ Menu</button>
+    <div id="dropdown">
+      <div class="inner">
+        <div class="card">
+          <label for="sourceSelect">Sorgente</label>
+          <select id="sourceSelect">
+            <option value="camera" selected>Fotocamera</option>
+            <option value="demo">Demo (video sintetico)</option>
+          </select>
+          <label for="cameraSelect" style="margin-top:8px;">Fotocamera</label>
+          <select id="cameraSelect">
+            <option value="env">Posteriore (grandangolo)</option>
+            <option value="user">Anteriore (selfie)</option>
+          </select>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
+            <button id="startBtn" class="primary">Avvia sessione</button>
+            <button id="stopBtn" class="danger">Stop</button>
+          </div>
+        </div>
+        <div class="card">
+          <label for="profileSelect">Profilo sito</label>
+          <select id="profileSelect">
+            <option value="sea">Mare</option><option value="lake">Lago</option><option value="pool">Piscina</option>
+          </select>
+          <label for="seaState" style="margin-top:8px;">Stato del mare (0–10)</label>
+          <input id="seaState" type="range" min="0" max="10" step="1" value="4">
+          <label for="confThreshold" style="margin-top:8px;">Conf. rilevazione persona</label>
+          <input id="confThreshold" type="range" min="0.3" max="0.9" step="0.05" value="0.6">
+          <label style="margin-top:8px;"><input type="checkbox" id="useMoveNet"> MoveNet (keypoints)</label>
+          <label for="ensembleStrict" style="margin-top:8px;"><input type="checkbox" id="ensembleStrict" checked> Allerta solo se detector+pose concordano</label>
+        </div>
+        <div class="card">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <div>
+              <label for="preAlertSec">Pre-allerta (s)</label>
+              <input id="preAlertSec" type="number" min="0.5" max="10" step="0.1" value="2.5">
+            </div>
+            <div>
+              <label for="alertSec">Allerta piena (s)</label>
+              <input id="alertSec" type="number" min="2" max="15" step="0.1" value="6.5">
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
+            <button id="roiBtn" class="warn">Disegna ROI (area acqua)</button>
+            <button id="clearRoiBtn">Cancella ROI</button>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
+            <button id="beepTestBtn">Test suono</button>
+            <button id="vibeTestBtn">Test vibrazione</button>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
+            <button id="exportCsvBtn">Esporta registro (CSV)</button>
+            <button id="resetLogBtn">Reset registro</button>
+          </div>
+        </div>
+        <div class="card">
+          <div><strong>Stato:</strong> <span id="runState">inattivo</span></div>
+          <div><strong>FPS:</strong> <span id="fps">-</span></div>
+          <div><strong>Persone tracciate:</strong> <span id="trackedCount">0</span></div>
+          <div><strong>Allarmi attivi:</strong> <span id="alarmCount">0</span></div>
+          <div><strong>Deriva stimata:</strong> <span id="driftVec">0,0</span></div>
+          <div style="margin-top:6px;">
+            <span class="pill">Feedback:</span>
+            <button id="markFalseBtn">Falso allarme</button>
+            <button id="markApneaBtn">Tuffo/Apnea</button>
+            <button id="markConfirmBtn" class="danger">Confermato pericolo</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="stage">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="overlay"></canvas>
+      <div id="hud" class="chip"></div>
+      <div id="topButtons">
+        <button id="fsBtn">Schermo intero</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script defer src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.18.0/dist/tf.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@3.7.0/dist/pose-detection.min.js"></script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
